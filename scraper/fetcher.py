@@ -25,7 +25,7 @@ class ScoreFetcher:
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.is_logged_in = False
-        self.ocr = ddddocr.DdddOcr(show_ad=False) # show_ad=False 避免在日志中打印广告
+        self.ocr = ddddocr.DdddOcr()
 
     def login(self, max_retries=5, retry_delay=5):
         for attempt in range(1, max_retries + 1):
