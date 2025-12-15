@@ -7,7 +7,7 @@ requires-python = ">=3.10"
 dependencies = [
     "bs4==0.0.2",
     "ddddocr==1.0.6",
-    "fastapi==0.104.1",
+    "fastapi==0.99.1",
     "pillow==9.5.0",
     "psycopg2-binary==2.9.11",
     "requests==2.32.5",
