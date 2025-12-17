@@ -1,0 +1,26 @@
+name: Connectivity Test
+
+on:
+  schedule:
+    # 对应北京时间 07:00 - 23:59，每30分钟执行一次
+    # GitHub 使用 UTC 时间，所以配置为 UTC 23:00 - 15:59
+    - cron: '*/20 * * * *'
+  # 允许手动点击按钮触发，方便测试
+  workflow_dispatch:
+
+jobs:
+  make_request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send GET request with Secret
+        env:
+          # 从仓库密钥中读取 API_TOKEN，赋值给环境变量 MY_SECRET
+          API_SECRET: ${{ secrets.API_SECRET }}
+          # 从仓库密钥中读取 API_URL
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          # 构建完整的 URL（确保格式正确）
+          FULL_URL="${API_URL}api/check-login-usability?secret=${API_SECRET}"
+          
+          echo "Sending request to: $FULL_URL"
+          curl -X GET "$FULL_URL"
