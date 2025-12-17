@@ -6,14 +6,14 @@ from datetime import datetime, timezone
 # SDK 会自动读取 UPSTASH_REDIS_REST_URL 和 UPSTASH_REDIS_REST_TOKEN
 redis = Redis.from_env()
 
-def save_scores(scores: list, ttl_seconds: int = 86400):
+def save_scores(scores: list, ttl_seconds: int = None):
     """
     将一份完整的成绩列表保存到 Upstash Redis。
     我们使用带时间戳的 key 来保存历史记录。
 
     Args:
         scores (list): 从 ScoreFetcher 获取的 combined_scores 列表。
-        ttl_seconds (int): 数据过期时间（秒），默认 1 天。
+        ttl_seconds (int): 数据过期时间（秒），默认 永不过期。
     """
     timestamp = datetime.now(timezone.utc).isoformat()
     key = f"scores:{timestamp}"
