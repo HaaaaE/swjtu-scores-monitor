@@ -1,13 +1,4 @@
 {
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "installer": "uv"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
