@@ -136,35 +136,66 @@ async def trigger_monitor_scores(api_key: str = Security(get_api_key)):
             key = (new_score.get('课程名称'), new_score.get('教师'))
             
             if key not in old_scores_map:
-                # 新增课程
-                changes.append({
-                    'type': '新增',
-                    'course': new_score
-                })
+                # 课程不存在于旧数据中，检查新增的内容
+                
+                # 新增总成绩
+                if new_score.get('成绩'):
+                    changes.append({
+                        'type': '新增总成绩',
+                        'course': new_score
+                    })
+                
+                # 新增平时成绩
+                if new_score.get('平时成绩详情'):
+                    changes.append({
+                        'type': '新增平时成绩',
+                        'course': new_score,
+                        'new_details': new_score.get('平时成绩详情')
+                    })
             else:
-                # 检查是否有成绩变化
+                # 课程存在，检查是否有变化
                 old_score = old_scores_map[key]
                 
-                # 比较总成绩
-                if old_score.get('总成绩') != new_score.get('总成绩'):
-                    changes.append({
-                        'type': '总成绩变化',
-                        'course': new_score,
-                        'old_value': old_score.get('总成绩'),
-                        'new_value': new_score.get('总成绩')
-                    })
+                # 检查总成绩
+                old_grade = old_score.get('成绩')
+                new_grade = new_score.get('成绩')
                 
-                # 比较平时成绩详情
-                old_details = old_score.get('平时成绩详情', [])
-                new_details = new_score.get('平时成绩详情', [])
+                if old_grade != new_grade:
+                    if not old_grade and new_grade:
+                        # 之前没有总成绩，现在有了
+                        changes.append({
+                            'type': '新增总成绩',
+                            'course': new_score
+                        })
+                    else:
+                        # 总成绩发生变化
+                        changes.append({
+                            'type': '总成绩变化',
+                            'course': new_score,
+                            'old_value': old_grade,
+                            'new_value': new_grade
+                        })
+                
+                # 检查平时成绩详情
+                old_details = old_score.get('平时成绩详情') or []
+                new_details = new_score.get('平时成绩详情') or []
                 
                 if old_details != new_details:
-                    changes.append({
-                        'type': '平时成绩变化',
-                        'course': new_score,
-                        'old_details': old_details,
-                        'new_details': new_details
-                    })
+                    if not old_details and new_details:
+                        # 之前没有平时成绩，现在有了
+                        changes.append({
+                            'type': '新增平时成绩',
+                            'course': new_score,
+                            'new_details': new_details
+                        })
+                    else:
+                        # 平时成绩发生变化
+                        changes.append({
+                            'type': '平时成绩变化',
+                            'course': new_score,
+                            'old_details': old_details,
+                            'new_details': new_details
+                        })
         
         # 4. 如果有变化，发送邮件
         if changes:
@@ -243,21 +274,36 @@ def generate_change_notification_html(changes):
         html += f'<div class="change-section">'
         html += f'<div class="change-type">【{change_type}】{course.get("课程名称", "未知课程")} - {course.get("教师", "")}</div>'
         
-        if change_type == '新增':
+        if change_type == '新增总成绩':
             html += '<table>'
             html += '<tr><th>项目</th><th>内容</th></tr>'
             html += f'<tr><td>课程名称</td><td>{course.get("课程名称", "")}</td></tr>'
             html += f'<tr><td>教师</td><td>{course.get("教师", "")}</td></tr>'
-            html += f'<tr><td>总成绩</td><td class="new-value">{course.get("总成绩", "")}</td></tr>'
-            html += f'<tr><td>绩点</td><td>{course.get("绩点", "")}</td></tr>'
+            html += f'<tr><td>成绩</td><td class="new-value">{course.get("成绩", "")}</td></tr>'
             html += f'<tr><td>学分</td><td>{course.get("学分", "")}</td></tr>'
+            html += f'<tr><td>期末</td><td>{course.get("期末", "")}</td></tr>'
+            html += f'<tr><td>平时</td><td>{course.get("平时", "")}</td></tr>'
             html += '</table>'
             
         elif change_type == '总成绩变化':
             html += '<table>'
             html += '<tr><th>项目</th><th>原成绩</th><th>新成绩</th></tr>'
-            html += f'<tr class="highlight"><td>总成绩</td><td class="old-value">{change.get("old_value", "")}</td><td class="new-value">{change.get("new_value", "")}</td></tr>'
+            html += f'<tr class="highlight"><td>成绩</td><td class="old-value">{change.get("old_value", "")}</td><td class="new-value">{change.get("new_value", "")}</td></tr>'
             html += '</table>'
+        
+        elif change_type == '新增平时成绩':
+            new_details = change.get('new_details', [])
+            if new_details:
+                html += '<table>'
+                html += '<tr><th>平时成绩名称</th><th>成绩</th><th>占比</th><th>提交时间</th></tr>'
+                for detail in new_details:
+                    html += '<tr>'
+                    html += f'<td>{detail.get("平时成绩名称", "")}</td>'
+                    html += f'<td class="new-value">{detail.get("成绩", "")}</td>'
+                    html += f'<td>{detail.get("占比", "")}</td>'
+                    html += f'<td>{detail.get("提交时间", "")}</td>'
+                    html += '</tr>'
+                html += '</table>'
             
         elif change_type == '平时成绩变化':
             html += '<p><strong>平时成绩详情有变化：</strong></p>'
