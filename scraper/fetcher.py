@@ -2,8 +2,12 @@
 import requests
 from bs4 import BeautifulSoup
 import time
-import ddddocr
 import logging
+
+from pathlib import Path
+import sys, os
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ocr import ocr  # 导入自定义OCR模块
 
 # --- 配置与常量 ---
 BASE_URL = "https://jwc.swjtu.edu.cn"
@@ -26,9 +30,8 @@ class ScoreFetcher:
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.is_logged_in = False
-        self.ocr = ddddocr.DdddOcr()
 
-    def login(self, max_retries=5, retry_delay=5):
+    def login(self, max_retries=5, retry_delay=2):
         for attempt in range(1, max_retries + 1):
             print(f"--- 登录尝试 #{attempt}/{max_retries} ---")
             
@@ -38,8 +41,8 @@ class ScoreFetcher:
                 captcha_params = {'test': int(time.time() * 1000)}
                 response = self.session.get(CAPTCHA_URL, params=captcha_params, timeout=10)
                 response.raise_for_status()
-                captcha_code = self.ocr.classification(response.content)
-                print(f"ddddocr 识别结果: {captcha_code}")
+                captcha_code = ocr.classify(response.content)
+                print(f"OCR 识别结果: {captcha_code}")
                 if not captcha_code or len(captcha_code) != 4:
                     print("验证码识别失败，跳过本次尝试。")
                     if attempt < max_retries: time.sleep(retry_delay)
@@ -125,25 +128,25 @@ class ScoreFetcher:
                 cols = row.find_all('td')
                 if len(cols) == 11:
                     course_name = cols[3].text.strip()
-                    if not current_course_info or current_course_info.get("course_name") != course_name:
+                    if not current_course_info or current_course_info.get("课程名称") != course_name:
                         if current_course_info:
                             normal_scores_data.append(current_course_info)
                         current_course_info = {
-                            "course_name": course_name,
-                            "teacher": cols[5].text.strip(),
-                            "details": []
+                            "课程名称": course_name,
+                            "教师": cols[5].text.strip(),
+                            "详情": []
                         }
                     
-                    current_course_info["details"].append({
-                        "item": cols[6].text.strip(),
-                        "score": cols[8].text.strip(),
-                        "ratio": cols[7].text.strip(),
-                        "submit_time": cols[10].text.strip()
+                    current_course_info["详情"].append({
+                        "平时成绩名称": cols[6].text.strip(),
+                        "成绩": cols[8].text.strip(),
+                        "占比": cols[7].text.strip(),
+                        "提交时间": cols[10].text.strip()
                     })
                 
                 elif len(cols) == 1 and cols[0].get('colspan') == '11':
                     if current_course_info:
-                        current_course_info["summary"] = cols[0].text.strip()
+                        current_course_info["总结"] = cols[0].text.strip()
             
             if current_course_info: # 添加最后一个课程
                 normal_scores_data.append(current_course_info)
@@ -164,7 +167,7 @@ class ScoreFetcher:
             return None
 
         all_scores = self.get_all_scores()
-        time.sleep(2) # 模拟人类行为
+        time.sleep(1) # 模拟人类行为
         normal_scores = self.get_normal_scores()
 
         if not all_scores:
@@ -175,17 +178,24 @@ class ScoreFetcher:
             print("未能获取平时成绩，将只返回总成绩。")
             return all_scores
 
+        print(normal_scores)
         # 创建一个快速查找平时成绩的字典
         # key: (课程名称, 教师)
-        normal_scores_map = {(ns['course_name'], ns['teacher']): ns['details'] for ns in normal_scores}
-
+        normal_scores_map = {(ns['课程名称'], ns['教师']): {
+            '详情': ns['详情'],
+            '总结': ns.get('总结')  # 包含summary信息
+        } for ns in normal_scores}
+        
         # 遍历总成绩，将平时成绩详情合并进去
         for score_record in all_scores:
             key = (score_record['课程名称'], score_record['教师'])
             if key in normal_scores_map:
-                score_record['normal_details'] = normal_scores_map[key]
+                normal_data = normal_scores_map[key]
+                score_record['平时成绩详情'] = normal_data['详情']
+                score_record['平时成绩总结'] = normal_data['总结']
             else:
-                score_record['normal_details'] = None
+                score_record['平时成绩详情'] = None
+                score_record['平时成绩总结'] = None
 
         print("总成绩与平时成绩合并完成。")
         return all_scores

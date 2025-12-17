@@ -1,6 +1,8 @@
 # --- config.py ---
+from pathlib import Path
 # 在这里填写你的教务系统账号和密码
-
+# 获取项目根目录（假设此文件在项目根目录）
+PROJECT_ROOT = Path(__file__).parent
 # 你的学号
 USERNAME = ""
 

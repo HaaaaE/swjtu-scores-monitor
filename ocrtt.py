@@ -1,13 +1,8 @@
 from PIL import Image, ImageDraw
-
-from pathlib import Path
-import sys, os
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
+import os
 from config import PROJECT_ROOT
 # --- 准备工作：创建用于存放调试结果的文件夹 ---
 DEBUG_FOLDER = os.path.join(PROJECT_ROOT, "ocr" , "debug_output")
-
 if not os.path.exists(DEBUG_FOLDER):
     os.makedirs(DEBUG_FOLDER)
 

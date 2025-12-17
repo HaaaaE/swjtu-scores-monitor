@@ -4,7 +4,12 @@ from bs4 import BeautifulSoup
 import time
 import getpass
 from PIL import Image
-import ddddocr  # <<< --- [新增] 导入ddddocr
+
+from pathlib import Path
+import sys, os
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ocr import ocr  # 导入自定义OCR模块
+
 import config  # 从配置文件导入账号密码
 
 # --- 配置与常量 ---
@@ -31,7 +36,6 @@ class ScoreFetcher:
         self.session = requests.Session()
         self.session.headers.update(HEADERS)
         self.is_logged_in = False
-        self.ocr = ddddocr.DdddOcr()  # <<< --- [新增] 初始化ocr对象
 
 
     def login(self):
@@ -54,9 +58,9 @@ class ScoreFetcher:
                 response.raise_for_status()
                 image_bytes = response.content
                 
-                # 使用ddddocr识别
-                captcha_code = self.ocr.classification(image_bytes)
-                print(f"ddddocr 识别结果: {captcha_code}")
+                # 使用自定义OCR识别
+                captcha_code = ocr.classify(image_bytes)
+                print(f"OCR 识别结果: {captcha_code}")
                 
             except Exception as e:
                 print(f"获取或识别验证码失败: {e}")
