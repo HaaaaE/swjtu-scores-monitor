@@ -1,36 +1,20 @@
-# api/index.py
+# actions/index.py
 import os
-from fastapi import FastAPI, HTTPException, Security
-from fastapi.security.api_key import APIKeyQuery
-from fastapi.responses import PlainTextResponse
 from pathlib import Path
-import sys, os
+import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from utils.fetcher import ScoreFetcher
 from utils import database
 
-app = FastAPI()
 
-api_key_query = APIKeyQuery(name="secret", auto_error=False)
-
-def get_api_key(api_key: str = Security(api_key_query)):
-    expected_api_key = os.environ.get("API_SECRET_TOKEN")
-    if not expected_api_key:
-        raise HTTPException(status_code=500, detail="服务器未配置API密钥")
-    if api_key == expected_api_key:
-        return api_key
-    else:
-        raise HTTPException(status_code=403, detail="提供的密钥无效或缺失")
-
-@app.get("/api/fetch-scores") 
-@app.post("/api/fetch-scores")
-async def trigger_fetch_scores(api_key: str = Security(get_api_key)):
+def fetch_scores():
+    """获取成绩并存储到数据库"""
     username = os.environ.get("SWJTU_USERNAME")
     password = os.environ.get("SWJTU_PASSWORD")
 
     if not username or not password:
-        raise HTTPException(status_code=500, detail="服务器未配置学号或密码环境变量")
+        raise Exception({"status": "error", "message": "未配置学号或密码"})
 
     print("--- 任务开始: 准备获取成绩 ---")
     fetcher = ScoreFetcher(username=username, password=password)
@@ -39,13 +23,13 @@ async def trigger_fetch_scores(api_key: str = Security(get_api_key)):
         # 1. 登录
         login_success = fetcher.login()
         if not login_success:
-            return {"status": "error", "message": "登录失败，请检查Vercel日志。"}
+            raise Exception({"status": "error", "message": "登录失败，请检查日志。"})
 
         # 2. 获取并合并总成绩和平时成绩
         combined_scores = fetcher.get_combined_scores()
 
         if not combined_scores:
-            return {"status": "error", "message": "未能获取到任何成绩数据。"}
+            raise Exception({"status": "error", "message": "未能获取到任何成绩数据。"})
 
         # 3. 将合并后的成绩数据存入
         print("正在将成绩数据存入数据库...")
@@ -67,34 +51,30 @@ async def trigger_fetch_scores(api_key: str = Security(get_api_key)):
 
     except Exception as e:
         print(f"执行任务时发生严重错误: {e}")
-        raise HTTPException(status_code=500, detail=f"执行爬虫任务时发生内部错误: {str(e)}")
+        raise Exception({"status": "error", "message": f"执行爬虫任务时发生内部错误: {str(e)}"})
 
-@app.get("/")
-def read_root():
-    return {"status": "online", "message": "SWJTU Score Fetcher API is running with upstash."}
 
-@app.get("/api/check-login-usability") 
-@app.post("/api/check-login-usability")
-async def trigger_check_login_usability(api_key: str = Security(get_api_key)):
+def check_login_connection():
     """检查当前配置的学号和密码是否能成功登录教务系统"""
     username = os.environ.get("SWJTU_USERNAME")
     password = os.environ.get("SWJTU_PASSWORD")
+    
     if not username or not password:
-        raise HTTPException(status_code=500, detail="服务器未配置学号或密码环境变量")
+        raise Exception({"status": "error", "message": "未配置学号或密码"})
+    
     try:
         fetcher = ScoreFetcher(username=username, password=password)
         login_success = fetcher.login()
     except Exception as e:
         print(f"检查登录有效性时发生错误: {e}")
-        raise HTTPException(status_code=500, detail=f"检查登录有效性时发生内部错误: {str(e)}")
+        raise Exception({"status": "error", "message": f"检查登录有效性时发生内部错误: {str(e)}"})
+    
     if login_success:
         return {"status": "success", "message": "登录成功，学号和密码有效。"}
     else:
-        raise HTTPException(status_code=500, detail=f"登录失败，请检查学号和密码是否正确；或为教务处服务器外网访问被关闭。")
+        raise Exception({"status": "error", "message": "登录失败，请检查学号和密码是否正确；或为教务处服务器外网访问被关闭。"})
     
-@app.get("/api/monitor-scores")
-@app.post("/api/monitor-scores")
-async def trigger_monitor_scores(api_key: str = Security(get_api_key)):
+def monitor_scores():
     """监控成绩变化，如有变动则发送邮件通知"""
     from utils.notify import send_email
     
@@ -108,10 +88,10 @@ async def trigger_monitor_scores(api_key: str = Security(get_api_key)):
     email_password = os.environ.get("EMAIL_PASSWORD")
     
     if not username or not password:
-        raise HTTPException(status_code=500, detail="服务器未配置学号或密码环境变量")
+        raise Exception({"status": "error", "message": "未配置学号或密码"})
     
     if not smtp_host or not notify_email or not email_password:
-        raise HTTPException(status_code=500, detail="服务器未配置邮件环境变量")
+        raise Exception({"status": "error", "message": "未配置邮件环境变量"})
     
     print("--- 任务开始: 监控成绩变化 ---")
     
@@ -126,12 +106,12 @@ async def trigger_monitor_scores(api_key: str = Security(get_api_key)):
         login_success = fetcher.login()
         
         if not login_success:
-            return {"status": "error", "message": "登录失败，请检查日志。"}
+            raise Exception({"status": "error", "message": "登录失败，请检查日志。"})
         
         new_scores = fetcher.get_combined_scores()
         
         if not new_scores:
-            return {"status": "error", "message": "未能获取到任何成绩数据。"}
+            raise Exception({"status": "error", "message": "未能获取到任何成绩数据。"})
         
         # 3. 比较成绩变化
         print("正在比较成绩变化...")
@@ -249,7 +229,7 @@ async def trigger_monitor_scores(api_key: str = Security(get_api_key)):
     
     except Exception as e:
         print(f"监控成绩时发生错误: {e}")
-        raise HTTPException(status_code=500, detail=f"监控成绩时发生内部错误: {str(e)}")
+        raise Exception({"status": "error", "message": f"监控成绩时发生内部错误: {str(e)}"})
     
     finally:
         print("--- 任务完成 ---")
@@ -347,8 +327,29 @@ def generate_change_notification_html(changes):
     
     return html
 
+
+
 if __name__ == "__main__":
-    sf = ScoreFetcher("2023112590", os.environ.get("SWJTU_PASSWORD"))  # 仅用于本地测试
-    sf.login()
-    sc = sf.get_combined_scores()  # 仅用于本地测试
-    print(sc)
+    import argparse
+    """根据命令行参数运行不同的函数"""
+    parser = argparse.ArgumentParser(description="SWJTU 成绩监控工具")
+    parser.add_argument(
+        "action",
+        choices=["fetch", "check", "monitor"],
+        help="要执行的操作: fetch(获取成绩), check(检查登录), monitor(监控变化)"
+    )
+    
+    args = parser.parse_args()
+    
+    actions_map = {
+        "fetch": fetch_scores,
+        "check": check_login_connection,
+        "monitor": monitor_scores,
+    }
+    
+    try:
+        result = actions_map[args.action]()
+        print(result)
+    except Exception as e:
+        print(f"执行失败: {e}")
+        sys.exit(1)
