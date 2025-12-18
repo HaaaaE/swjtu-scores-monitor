@@ -8,7 +8,7 @@ GIST_PAT = os.getenv("GIST_PAT")
 # 默认文件名为 scores.json，用户也可以通过环境变量覆盖
 GIST_FILENAME = os.getenv("GIST_NAME", "scores.json")
 # 双重保险
-TARGET_DESCRIPTION = "just_for_swjtu_scores_monotor"
+TARGET_DESCRIPTION = "just_for_swjtu_scores_monitor"
 
 if not GIST_PAT:
     raise ValueError("严重错误: 必须设置 GIST_PAT 环境变量")
