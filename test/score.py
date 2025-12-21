@@ -50,7 +50,7 @@ class ScoreFetcher:
             print(f"--- 登录尝试 #{attempt}/{max_retries} ---")
             
             # 1. 获取验证码并尝试OCR识别
-            print("正在获取验证碼...")
+            print("正在获取验证码...")
             captcha_code = None
             try:
                 captcha_params = {'test': int(time.time() * 1000)}

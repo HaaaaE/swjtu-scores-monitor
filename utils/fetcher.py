@@ -37,7 +37,7 @@ class ScoreFetcher:
             
             try:
                 # 1. 获取并识别验证码
-                print("正在获取验证碼...")
+                print("正在获取验证码...")
                 captcha_params = {'test': int(time.time() * 1000)}
                 response = self.session.get(CAPTCHA_URL, params=captcha_params, timeout=10)
                 response.raise_for_status()
